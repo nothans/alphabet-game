@@ -12,7 +12,7 @@ Alphabet Asteroids is a fun, single-page educational web game designed to help c
 ## How to Play
 
 ### Open the Game
-* Open the game file in your web browser.
+* Open [https://nothans.github.io/alphabet-game/](https://nothans.github.io/alphabet-game/) in your web browser.
 
 ### Watch the Asteroids
 * Asteroids with letters fall from the top of the screen.
