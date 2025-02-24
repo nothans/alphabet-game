@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+    <!-- Triangle background -->
+    <polygon points="256,50 50,450 462,450" 
+             fill="#4CAF50" 
+             stroke="#2E7D32" 
+             stroke-width="20"/>
+    
+    <!-- Letter A -->
+    <text x="256" y="320" 
+          font-family="Arial Black, sans-serif" 
+          font-size="300" 
+          fill="white" 
+          text-anchor="middle" 
+          dominant-baseline="middle">
+        a
+    </text>
+</svg>

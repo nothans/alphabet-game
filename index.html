@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg" href="logo.svg">
+  <title>Alphabet Asteroids</title>
+  <style>
+    /* Basic styling and game container */
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #000;
+      font-family: sans-serif;
+      user-select: none;
+    }
+    #gameContainer {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .asteroid {
+      position: absolute;
+      text-align: center;
+      line-height: 1;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    /* Explosion animation */
+    .explode {
+      animation: explodeAnim 0.5s forwards;
+    }
+    @keyframes explodeAnim {
+      0% {
+        transform: scale(1);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(2);
+        opacity: 0;
+      }
+    }
+    /* Wrong input flash effect */
+    .wrong {
+      animation: wrongAnim 0.3s;
+    }
+    @keyframes wrongAnim {
+      0% { background-color: inherit; }
+      50% { background-color: red; }
+      100% { background-color: inherit; }
+    }
+    /* HUD styling */
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      padding: 10px;
+      color: #fff;
+      background: rgba(0,0,0,0.5);
+      font-size: 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-sizing: border-box;
+    }
+    #hud h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+    #hud div {
+      margin-left: 20px;
+    }
+    /* Game Over/Win overlay */
+    #gameOverOverlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.8);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      z-index: 10;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <div id="hud">
+      <h1>Alphabet Asteroids</h1>
+      <div>Level: <span id="levelDisplay">1</span></div>
+      <div id="strikesDisplay" style="display:none;">Strikes: <span id="strikeCount">0</span>/3</div>
+      <div id="targetDisplay" style="display:none;">Target: <span id="targetLetter"></span></div>
+    </div>
+    <div id="gameOverOverlay">Game Over</div>
+  </div>
+  <script>
+    (function() {
+      const gameContainer = document.getElementById('gameContainer');
+      const hudLevel = document.getElementById('levelDisplay');
+      const hudStrikes = document.getElementById('strikesDisplay');
+      const hudStrikeCount = document.getElementById('strikeCount');
+      const hudTarget = document.getElementById('targetDisplay');
+      const hudTargetLetter = document.getElementById('targetLetter');
+      const gameOverOverlay = document.getElementById('gameOverOverlay');
+      
+      const alphabet = 'abcdefghijklmnopqrstuvwxyz';
+      let currentLetterIndex = 0; // Range 0 to 25 for one round
+      let currentLevel = 1; // Levels 1 to 4
+      let strikes = 0;
+      let asteroid = null;
+      let animationFrameId = null;
+      let gameRunning = true;
+      
+      // For Level 1: fixed speed
+      const fixedSpeed = 1.5; 
+      
+      // Define possible shapes and colors for variety
+      const shapes = ['circle', 'square', 'triangle', 'diamond'];
+      const colors = ['#FF5733', '#33FF57', '#3357FF', '#F333FF', '#33FFF5', '#F5FF33', '#FF33A8'];
+      
+      // Helper function to compute brightness of a hex color
+      function getBrightness(hexColor) {
+        if(hexColor[0] === '#') hexColor = hexColor.slice(1);
+        let r = parseInt(hexColor.substr(0,2), 16);
+        let g = parseInt(hexColor.substr(2,2), 16);
+        let b = parseInt(hexColor.substr(4,2), 16);
+        return (r * 299 + g * 587 + b * 114) / 1000;
+      }
+      
+      // Update the HUD display based on the current level, strikes, and (for boss level) target letter.
+      function updateHUD() {
+        hudLevel.textContent = currentLevel;
+        if (currentLevel === 3) {
+          hudStrikes.style.display = 'block';
+          hudStrikeCount.textContent = strikes;
+        } else {
+          hudStrikes.style.display = 'none';
+        }
+        if (currentLevel === 4) {
+          hudTarget.style.display = 'block';
+          // Show the target letter (for the current round) in the HUD.
+          hudTargetLetter.textContent = alphabet[currentLetterIndex];
+        } else {
+          hudTarget.style.display = 'none';
+        }
+      }
+      
+      // Create a new asteroid with the current letter and randomized properties.
+      function createAsteroid() {
+        if (asteroid) {
+          gameContainer.removeChild(asteroid);
+        }
+        asteroid = document.createElement('div');
+        asteroid.classList.add('asteroid');
+        
+        // Determine the target letter for this round.
+        let letter = alphabet[currentLetterIndex];
+        // In boss level, do not show the letter on the asteroid.
+        if (currentLevel !== 4) {
+          asteroid.textContent = letter;
+        }
+        
+        // Randomize size (between 50 and 100px) and adjust font size accordingly.
+        const size = Math.floor(Math.random() * 50) + 50;
+        asteroid.style.width = size + 'px';
+        asteroid.style.height = size + 'px';
+        asteroid.style.fontSize = (size * 0.5) + 'px';
+        
+        // Randomly choose a shape.
+        const shape = shapes[Math.floor(Math.random() * shapes.length)];
+        asteroid.style.clipPath = '';
+        asteroid.style.borderRadius = '';
+        asteroid.style.transform = 'rotate(0deg)';
+        if (shape === 'circle') {
+          asteroid.style.borderRadius = '50%';
+        } else if (shape === 'triangle') {
+          asteroid.style.clipPath = 'polygon(50% 0%, 0% 100%, 100% 100%)';
+        } else if (shape === 'diamond') {
+          asteroid.style.clipPath = 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)';
+        }
+        // A square needs no extra styling.
+        
+        // Random background color.
+        const bgColor = colors[Math.floor(Math.random() * colors.length)];
+        asteroid.style.backgroundColor = bgColor;
+        
+        // Set text color based on background brightness so that it remains legible.
+        let brightness = getBrightness(bgColor);
+        asteroid.style.color = brightness > 128 ? '#000' : '#fff';
+        
+        // Position the asteroid at a random horizontal position, starting above the screen.
+        const containerWidth = gameContainer.clientWidth;
+        const x = Math.random() * (containerWidth - size);
+        asteroid.style.left = x + 'px';
+        asteroid.style.top = '-' + size + 'px';
+        
+        gameContainer.appendChild(asteroid);
+        
+        // Set falling speed based on level.
+        if (currentLevel === 1) {
+          asteroid.speed = fixedSpeed;
+        } else {
+          // For levels 2, 3, and 4, use a random speed between 1 and 2 pixels per frame.
+          asteroid.speed = Math.random() * 1 + 1;
+        }
+      }
+      
+      // Called when a letter is correctly typed or when an asteroid reaches the bottom.
+      // When correct is true, move on to the next letter. When false, repeat the same letter.
+      function resetAsteroid(correct = true) {
+        if (correct) {
+          currentLetterIndex++;
+          // Check if this round (alphabet) is complete.
+          if (currentLetterIndex >= alphabet.length) {
+            if (currentLevel < 4) {
+              // Move to the next level and start a new round.
+              currentLevel++;
+              currentLetterIndex = 0;
+              // Reset strikes if coming into level 3.
+              if (currentLevel === 3) {
+                strikes = 0;
+              }
+            } else {
+              // Level 4 complete: win the game.
+              winGame();
+              return;
+            }
+          }
+        }
+        createAsteroid();
+        updateHUD();
+      }
+      
+      // End the game due to strikes.
+      function gameOver() {
+        gameRunning = false;
+        gameOverOverlay.textContent = 'Game Over';
+        gameOverOverlay.style.display = 'flex';
+        cancelAnimationFrame(animationFrameId);
+      }
+      
+      // Called when the boss level (level 4) is completed.
+      function winGame() {
+        gameRunning = false;
+        gameOverOverlay.textContent = 'You Win!';
+        gameOverOverlay.style.display = 'flex';
+        cancelAnimationFrame(animationFrameId);
+      }
+      
+      // The animation loop moves the asteroid downward.
+      function animate() {
+        if (!gameRunning) return;
+        const containerHeight = gameContainer.clientHeight;
+        if (asteroid) {
+          let top = parseFloat(asteroid.style.top);
+          top += asteroid.speed;
+          asteroid.style.top = top + 'px';
+          
+          // If the asteroid reaches the bottom of the screen...
+          if (top > containerHeight) {
+            asteroid.classList.add('explode');
+            // In level 3, add a strike.
+            if (currentLevel === 3) {
+              strikes++;
+              updateHUD();
+              if (strikes >= 3) {
+                setTimeout(gameOver, 500);
+                return;
+              }
+            }
+            // When an asteroid falls, the same letter is retried.
+            setTimeout(() => resetAsteroid(false), 500);
+          }
+        }
+        animationFrameId = requestAnimationFrame(animate);
+      }
+      
+      // Listen for key presses.
+      document.addEventListener('keydown', function(e) {
+        if (!asteroid) return;
+        let key = e.key.toLowerCase();
+        // The expected letter is always the one for the current position in the alphabet.
+        let expected = alphabet[currentLetterIndex];
+        if (key === expected) {
+          asteroid.classList.add('explode');
+          setTimeout(() => resetAsteroid(true), 500);
+        } else if (alphabet.includes(key)) {
+          // Wrong input: flash red, push the asteroid upward as a penalty, and add a strike in level 3
+          asteroid.classList.add('wrong');
+          let top = parseFloat(asteroid.style.top);
+          asteroid.style.top = Math.max(top - 30, 0) + 'px';
+          setTimeout(() => asteroid.classList.remove('wrong'), 300);
+          
+          // In level 3, add a strike for wrong key press
+          if (currentLevel === 3) {
+            strikes++;
+            updateHUD();
+            if (strikes >= 3) {
+              setTimeout(gameOver, 500);
+              return;
+            }
+          }
+        }
+      });
+      
+      // Start the game.
+      createAsteroid();
+      updateHUD();
+      animate();
+      
+    })();
+  </script>
+</body>
+</html>
