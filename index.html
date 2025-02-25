@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <link rel="icon" type="image/svg" href="logo.svg">
   <title>Alphabet Asteroids</title>
   <style>
@@ -14,6 +16,7 @@
       background: #000;
       font-family: sans-serif;
       user-select: none;
+      touch-action: none;
     }
     #gameContainer {
       position: relative;
@@ -29,6 +32,51 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      touch-action: none;
+    }
+    /* HUD styling */
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      padding: 15px;
+      color: #fff;
+      background: rgba(0,0,0,0.7);
+      font-size: 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-sizing: border-box;
+      backdrop-filter: blur(5px);
+    }
+    .game-logo {
+      position: relative;
+      top: 0;
+      left: 0;
+      width: 40px;
+      height: 40px;
+      margin-right: 15px;
+    }
+    #hud .title-section {
+      display: flex;
+      align-items: center;
+    }
+    #hud h1 {
+      margin: 0;
+      font-size: 24px;
+      text-shadow: 0 0 10px rgba(255,255,255,0.5);
+    }
+    #hud .info-section {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+    #hud .info-section div {
+      background: rgba(255,255,255,0.1);
+      padding: 5px 15px;
+      border-radius: 15px;
+      margin: 0;
     }
     /* Explosion animation */
     .explode {
@@ -53,28 +101,6 @@
       50% { background-color: red; }
       100% { background-color: inherit; }
     }
-    /* HUD styling */
-    #hud {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      padding: 10px;
-      color: #fff;
-      background: rgba(0,0,0,0.5);
-      font-size: 18px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-sizing: border-box;
-    }
-    #hud h1 {
-      margin: 0;
-      font-size: 24px;
-    }
-    #hud div {
-      margin-left: 20px;
-    }
     /* Game Over/Win overlay */
     #gameOverOverlay {
       position: absolute;
@@ -91,18 +117,75 @@
       z-index: 10;
       display: none;
     }
+    /* Mobile keyboard */
+    #mobileKeyboard {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 10px;
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      z-index: 100;
+    }
+    .keyboard-row {
+      display: flex;
+      justify-content: center;
+      gap: 5px;
+    }
+    .key {
+      flex: 1;
+      max-width: 9%;
+      aspect-ratio: 1;
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      border-radius: 5px;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: min(20px, 4vw);
+      touch-action: none;
+    }
+    .key:active {
+      background: rgba(255, 255, 255, 0.4);
+    }
+    @media (max-width: 768px) {
+      #hud {
+        font-size: 14px;
+        padding: 5px;
+      }
+      #hud h1 {
+        font-size: 18px;
+      }
+      .asteroid {
+        font-size: 24px !important;
+      }
+      #mobileKeyboard {
+        display: flex;
+        padding: 5px;
+      }
+    }
   </style>
 </head>
 <body>
   <div id="gameContainer">
     <div id="hud">
-      <h1>Alphabet Asteroids</h1>
-      <div>Level: <span id="levelDisplay">1</span></div>
-      <div id="strikesDisplay" style="display:none;">Strikes: <span id="strikeCount">0</span>/3</div>
-      <div id="targetDisplay" style="display:none;">Target: <span id="targetLetter"></span></div>
+      <div class="title-section">
+        <img src="logo.svg" alt="Alphabet Asteroids Logo" class="game-logo">
+        <h1>Alphabet Asteroids</h1>
+      </div>
+      <div class="info-section">
+        <div>Level: <span id="levelDisplay">1</span></div>
+        <div id="strikesDisplay" style="display:none;">Strikes: <span id="strikeCount">0</span>/3</div>
+        <div id="targetDisplay" style="display:none;">Target: <span id="targetLetter"></span></div>
+      </div>
     </div>
     <div id="gameOverOverlay">Game Over</div>
   </div>
+  <div id="mobileKeyboard"></div>
   <script>
     (function() {
       const gameContainer = document.getElementById('gameContainer');
@@ -285,33 +368,60 @@
         animationFrameId = requestAnimationFrame(animate);
       }
       
-      // Listen for key presses.
-      document.addEventListener('keydown', function(e) {
-        if (!asteroid) return;
-        let key = e.key.toLowerCase();
-        // The expected letter is always the one for the current position in the alphabet.
-        let expected = alphabet[currentLetterIndex];
-        if (key === expected) {
-          asteroid.classList.add('explode');
-          setTimeout(() => resetAsteroid(true), 500);
-        } else if (alphabet.includes(key)) {
-          // Wrong input: flash red, push the asteroid upward as a penalty, and add a strike in level 3
-          asteroid.classList.add('wrong');
-          let top = parseFloat(asteroid.style.top);
-          asteroid.style.top = Math.max(top - 30, 0) + 'px';
-          setTimeout(() => asteroid.classList.remove('wrong'), 300);
+      // Create mobile keyboard
+      function createMobileKeyboard() {
+        const keyboard = document.getElementById('mobileKeyboard');
+        const layout = [
+          'qwertyuiop',
+          'asdfghjkl',
+          'zxcvbnm'
+        ];
+        
+        layout.forEach(row => {
+          const rowDiv = document.createElement('div');
+          rowDiv.className = 'keyboard-row';
           
-          // In level 3, add a strike for wrong key press
-          if (currentLevel === 3) {
-            strikes++;
-            updateHUD();
-            if (strikes >= 3) {
-              setTimeout(gameOver, 500);
-              return;
-            }
+          row.split('').forEach(letter => {
+            const key = document.createElement('div');
+            key.className = 'key';
+            key.textContent = letter;
+            key.addEventListener('touchstart', (e) => {
+              e.preventDefault();
+              handleInput(letter);
+            });
+            rowDiv.appendChild(key);
+          });
+          
+          keyboard.appendChild(rowDiv);
+        });
+      }
+
+      // Handle input from both keyboard and touch
+      function handleInput(key) {
+        if (!asteroid) return;
+        key = key.toLowerCase();
+        
+        if (key === alphabet[currentLetterIndex]) {
+          resetAsteroid(true);
+        } else {
+          document.body.classList.add('wrong');
+          setTimeout(() => document.body.classList.remove('wrong'), 300);
+          strikes++;
+          if (strikes >= 3) {
+            gameOver();
+            return;
           }
+          updateHUD();
         }
+      }
+
+      // Update keyboard event listener to use handleInput
+      document.addEventListener('keydown', function(e) {
+        handleInput(e.key);
       });
+
+      // Initialize mobile keyboard
+      createMobileKeyboard();
       
       // Start the game.
       createAsteroid();
