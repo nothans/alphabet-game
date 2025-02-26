@@ -152,6 +152,24 @@
     .key:active {
       background: rgba(255, 255, 255, 0.4);
     }
+    /* Explosion particles */
+    .particle {
+      position: absolute;
+      pointer-events: none;
+      background: #fff;
+      border-radius: 50%;
+      animation: particle 0.8s cubic-bezier(0.45, 0.05, 0.55, 0.95) forwards;
+    }
+    @keyframes particle {
+      0% {
+        transform: translate(0, 0) scale(1);
+        opacity: 1;
+      }
+      100% {
+        transform: translate(var(--tx), var(--ty)) scale(0);
+        opacity: 0;
+      }
+    }
     @media (max-width: 768px) {
       #hud {
         font-size: 14px;
@@ -298,10 +316,41 @@
         }
       }
       
+      // Create explosion effect
+      function createExplosion(x, y, color) {
+        const particleCount = 12;
+        for (let i = 0; i < particleCount; i++) {
+          const particle = document.createElement('div');
+          particle.className = 'particle';
+          particle.style.left = x + 'px';
+          particle.style.top = y + 'px';
+          particle.style.width = '4px';
+          particle.style.height = '4px';
+          particle.style.background = color;
+          
+          // Calculate random angle and distance
+          const angle = (i / particleCount) * 360;
+          const distance = Math.random() * 100 + 50;
+          const tx = Math.cos(angle * Math.PI / 180) * distance;
+          const ty = Math.sin(angle * Math.PI / 180) * distance;
+          
+          particle.style.setProperty('--tx', `${tx}px`);
+          particle.style.setProperty('--ty', `${ty}px`);
+          
+          gameContainer.appendChild(particle);
+          
+          // Remove particle element after animation
+          setTimeout(() => particle.remove(), 800);
+        }
+      }
+      
       // Called when a letter is correctly typed or when an asteroid reaches the bottom.
       // When correct is true, move on to the next letter. When false, repeat the same letter.
       function resetAsteroid(correct = true) {
         if (correct) {
+          const rect = asteroid.getBoundingClientRect();
+          const color = window.getComputedStyle(asteroid).backgroundColor;
+          createExplosion(rect.left + rect.width / 2, rect.top + rect.height / 2, color);
           currentLetterIndex++;
           // Check if this round (alphabet) is complete.
           if (currentLetterIndex >= alphabet.length) {
